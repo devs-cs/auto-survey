@@ -1,0 +1,74 @@
+import Head from 'next/head';
+import Layout from './layout';
+import React, { useState, useEffect } from 'react';
+import { Model } from "survey-core";
+import { Survey } from "survey-react-ui";
+import "survey-core/defaultV2.min.css";
+import styles from "./InfiniteForm.module.css";
+
+export default function InfiniteForm() {
+    const init = [
+        { question: "What is your full name", desc: "Use ENTER for multiple lines and TAB/ESC for the next question to appear", type: "comment", answer: "" },
+        { question: "What is your email address?", type: "comment", answer: "" }
+    ];
+
+    const [questions, setQuestions] = useState(init);
+    const [pageY, setPageY] = useState(0);
+
+    const surveyJson = {
+        elements: questions.map((obj, idx) => ({
+            name: `Q${idx}`,
+            title: obj.question,
+            type: obj.type,
+            allowResize: false,
+            autoGrow: true,
+            rows: 1,
+            defaultValue: obj.answer,
+            isRequired: true,
+            visible: questions.slice(0, idx).every(q => q.answer !== ""),
+            description: obj.desc ? obj.desc : ""
+        }))
+    };
+
+    const survey = new Model(surveyJson);
+    survey.showNavigationButtons = false;
+
+    survey.onValueChanged.add(function (sender, options) {
+        setPageY(window.scrollY);
+        const idx = parseInt(options.name.substring(1));
+        setQuestions(questions => {
+            const newQuestions = [...questions];
+            newQuestions[idx].answer = options.value;
+            return newQuestions;
+        });
+    });
+
+    const alertResults = (sender) => {
+        const results = JSON.stringify(sender.data);
+        alert(results);
+    };
+
+    survey.onComplete.add(alertResults);
+
+    useEffect(() => {
+        const filledQuestions = questions.filter(q => q.answer !== "");
+        if (filledQuestions.length === questions.length) {
+            setQuestions(prevQuestions => [...prevQuestions, { question: "", type: "comment", answer: "" }]);
+        }
+        window.scrollTo({
+            top: pageY + 200,
+            behavior: 'smooth'
+        });
+    }, [questions, pageY]);
+
+    return (
+        <div className={styles.container}>
+            <Layout>
+                <Head>
+                    <title>Survey</title>
+                </Head>
+                <Survey model={survey} />
+            </Layout>
+        </div>
+    );
+}
